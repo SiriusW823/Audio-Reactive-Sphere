@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Particle Visualizer</title>
+    <title>Audio Reactive Sphere</title>
+    <meta name="description" content="A real-time audio visualization using your microphone input">
     <style>
         body { 
             margin: 0; 
             font-family: Arial, sans-serif;
+            background: #000;
         }
         canvas { 
             display: block; 
@@ -19,7 +21,7 @@
             height: 100%;
             width: 100%;
         }
-        #audio-controls {
+        #info {
             position: fixed;
             bottom: 20px;
             left: 50%;
@@ -28,45 +30,22 @@
             padding: 10px 20px;
             border-radius: 5px;
             z-index: 1000;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-        #audio-controls button,
-        #audio-controls select {
-            background: #333;
             color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 4px;
-            cursor: pointer;
             font-size: 14px;
+            text-align: center;
         }
-        #audio-controls button:hover,
-        #audio-controls select:hover {
-            background: #444;
+        #info a {
+            color: #66b3ff;
+            text-decoration: none;
         }
-        #volume-control {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: white;
-        }
-        #volume {
-            width: 100px;
+        #info a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <div id="audio-controls">
-        <button id="playPause">Play</button>
-        <select id="songSelect">
-            <option value="">Select song...</option>
-        </select>
-        <div id="volume-control">
-            <label for="volume">Volume:</label>
-            <input type="range" id="volume" min="0" max="1" step="0.1" value="0.5">
-        </div>
+    <div id="info">
+        🎤 Speak, sing, or play music near your microphone to see the visualization react!
     </div>
     <script type="module" src="./main.js"></script>
 </body>
