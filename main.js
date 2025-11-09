@@ -411,14 +411,14 @@ function reinitializeParticlesForSphere(sphere, sphereParams, sphereGeometry) {
 }
 
 function updateColorsForSphere(sphereParams, sphereGeometry, sphereColors) {
-    const color1 = new THREE.Color(sphereParams.colorStart);
-    const color2 = new THREE.Color(sphereParams.colorEnd);
+    // Use single color if available, otherwise use colorStart
+    const colorToUse = sphereParams.color || sphereParams.colorStart;
+    const color = new THREE.Color(colorToUse);
 
     for (let i = 0; i < sphereParams.particleCount; i++) {
-        const t = i / sphereParams.particleCount;
-        sphereColors[i * 3] = color1.r * (1 - t) + color2.r * t;
-        sphereColors[i * 3 + 1] = color1.g * (1 - t) + color2.g * t;
-        sphereColors[i * 3 + 2] = color1.b * (1 - t) + color2.b * t;
+        sphereColors[i * 3] = color.r;
+        sphereColors[i * 3 + 1] = color.g;
+        sphereColors[i * 3 + 2] = color.b;
     }
     sphereGeometry.attributes.color.needsUpdate = true;
 }
@@ -597,6 +597,15 @@ presetSelect.onchange = () => {
         const previousParticleCount = sphere.params.particleCount; // Původní počet částic
 
         Object.assign(sphere.params, preset[index]);
+
+        // Backward compatibility: if old preset doesn't have 'color', use colorStart
+        if (!('color' in sphere.params) && 'colorStart' in sphere.params) {
+            sphere.params.color = sphere.params.colorStart;
+        }
+        // Backward compatibility: if old preset doesn't have 'reactionStrength', use turbulenceStrength
+        if (!('reactionStrength' in sphere.params) && 'turbulenceStrength' in sphere.params) {
+            sphere.params.reactionStrength = sphere.params.turbulenceStrength;
+        }
 
         if (!('minFrequencyBeat' in sphere.params)) {
             sphere.params.minFrequencyBeat = sphere.params.minFrequency;
