@@ -984,7 +984,7 @@ function createSphereVisualization(index) {
         noiseStep: 0.2,           
         noiseSpeed: 0.1,
         turbulenceStrength: 0.005,
-        colorStart: '#ff3366',
+        colorStart: '#66b3ff',
         colorEnd: '#3366ff',
         volumeChangeThreshold: 0.1,
         peakSensitivity: 1.1,
