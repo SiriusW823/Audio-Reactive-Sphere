@@ -90,53 +90,13 @@ let sourceNode = null;
 let micStream;
 let micSource = null;
 
-// Audio Controls Container
-const controls = document.createElement('div');
-controls.style.cssText = 'position: absolute; top: 10px; right: 310px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px;';
-document.body.appendChild(controls);
+// Microphone status indicator
+const micStatus = document.createElement('div');
+micStatus.style.cssText = 'position: fixed; top: 10px; right: 310px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 5px; color: white; font-size: 14px;';
+micStatus.innerHTML = '🎤 Microphone: <span id="mic-status-text">Initializing...</span>';
+document.body.appendChild(micStatus);
 
-const audioControls = document.createElement('div');
-audioControls.style.cssText = 'display: flex; align-items: center; gap: 10px;';
-controls.appendChild(audioControls);
-
-const songSelect = document.createElement('select');
-songSelect.style.cssText = 'padding: 5px; border-radius: 3px; background: #333; color: white; border: 1px solid #666;';
-audioControls.appendChild(songSelect);
-
-const playPause = document.createElement('button');
-playPause.textContent = 'Play';
-playPause.style.cssText = 'padding: 5px 15px; border-radius: 3px; background: #444; color: white; border: 1px solid #666;';
-audioControls.appendChild(playPause);
-
-const volumeControl = document.createElement('input');
-volumeControl.type = 'range';
-volumeControl.min = 0;
-volumeControl.max = 1;
-volumeControl.step = 0.1;
-volumeControl.value = 0.5;
-volumeControl.style.width = '100px';
-audioControls.appendChild(volumeControl);
-
-const timelineControl = document.createElement('input');
-timelineControl.type = 'range';
-timelineControl.min = 0;
-timelineControl.max = 100;
-timelineControl.step = 1;
-timelineControl.value = 0;
-timelineControl.style.width = '200px';  
-timelineControl.style.marginLeft = '10px';
-audioControls.appendChild(timelineControl);
-
-const inputToggle = document.createElement('button');
-inputToggle.textContent = 'Use Mic';
-inputToggle.style.cssText = 'padding: 5px 15px; border-radius: 3px; background: #444; color: white; border: 1px solid #666; margin-left: 10px;';
-audioControls.appendChild(inputToggle);
-
-let usingMic = false;
-inputToggle.onclick = toggleInput;
-
-playPause.onclick = togglePlay;
-songSelect.onchange = changeSong;
+let usingMic = true; // Always use microphone
 
 console.log('Controls created');
 
@@ -234,150 +194,50 @@ const beatManager = {
     }
 };
 
-async function toggleInput() {
+// Initialize microphone automatically
+async function initMicrophone() {
+    const statusText = document.getElementById('mic-status-text');
     
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
-    }
-    await audioContext.resume();
-    
-    if (usingMic) {
-        usingMic = false;
-        inputToggle.textContent = 'Use Mic';
-        songSelect.disabled = false;
-        playPause.disabled = false;
-        volumeControl.disabled = false;
-        timelineControl.disabled = false;
-
-        if (micSource) {
-            micSource.disconnect();
-            micSource = null;
-        }
-
-        if (sourceNode) {
-            sourceNode.connect(analyser);
-        }
-        analyser.connect(audioContext.destination);
-
-    } else {
-        usingMic = true;
-        inputToggle.textContent = 'Use Player';
-        songSelect.disabled = true;
-        playPause.disabled = true;
-        volumeControl.disabled = true;
-        timelineControl.disabled = true;
-
-        try {
-            micStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: false
-                }
-            });
-
-            if (sourceNode) {
-                sourceNode.disconnect();
-            }
-
-            micSource = audioContext.createMediaStreamSource(micStream);
-            micSource.connect(analyser);
-            analyser.disconnect(audioContext.destination);
-
-            console.log('Microphone is active');
-
-        } catch (error) {
-            console.error("Microphone access failed:", error.name, error.message);
-            usingMic = false;
-            inputToggle.textContent = 'Use Mic';
-        }
-    }
-}
-
-async function initAudio() {
     try {
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             analyser = audioContext.createAnalyser();
             analyser.fftSize = 2048;
         }
+        await audioContext.resume();
 
-        if (!usingMic) {
-            if (!audioElement) {
-                audioElement = document.createElement('audio');
-                audioElement.crossOrigin = "anonymous";
-                audioElement.volume = volumeControl.value;
+        statusText.textContent = 'Requesting access...';
+        
+        micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: false
             }
+        });
 
-            try {
-                if (!sourceNode) {
-                    sourceNode = audioContext.createMediaElementSource(audioElement);
-                    sourceNode.connect(analyser);
-                    analyser.connect(audioContext.destination);
-                } else {
-                    sourceNode.disconnect();
-                    sourceNode.connect(analyser);
-                }
+        micSource = audioContext.createMediaStreamSource(micStream);
+        micSource.connect(analyser);
+        // Don't connect to destination to avoid feedback
+        // analyser.disconnect(audioContext.destination);
 
-            } catch (error) {
-                console.error("Failed to connect audio element to analyser:", error.name, error.message);
-            }
-
-            try {
-                const response = await fetch('Songs/');
-                const text = await response.text();
-                
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(text, 'text/html');
-                
-                const files = Array.from(doc.querySelectorAll('a'))
-                    .map(a => decodeURIComponent(a.href))
-                    .filter(href => href.match(/\.(mp3|wav|ogg)$/i))
-                    .map(href => {
-                        const fileName = href.split('/').pop();
-                        return {
-                            path: `Songs/${fileName}`,
-                            name: fileName.replace(/\.(mp3|wav|ogg)$/i, '')
-                        };
-                    });
-                
-                songSelect.innerHTML = '';
-                
-                files.forEach(file => {
-                    const option = document.createElement('option');
-                    option.value = file.path;
-                    option.textContent = file.name;
-                    songSelect.appendChild(option);
-                });
-                
-                if (files.length > 0 && !audioElement.src) {
-                    audioElement.src = files[0].path;
-                }
-                
-            } catch (error) {
-                console.error("Failed to load song list:", error);
-            }
-            
-            volumeControl.oninput = e => {
-                if (audioElement) {
-                    audioElement.volume = e.target.value;
-                }
-            };
-            
-            setupTimelineControl();
-        }
-
-        console.log('Audio initialized');
+        statusText.textContent = 'Active ✓';
+        statusText.style.color = '#4ade80';
+        console.log('Microphone is active');
         
     } catch (error) {
-        console.error("Audio initialization failed:", error);
+        console.error("Microphone access failed:", error.name, error.message);
+        statusText.textContent = 'Access Denied ✗';
+        statusText.style.color = '#ef4444';
+        alert('Microphone access is required for this application. Please allow microphone access and refresh the page.');
     }
 }
 
+// Remove audio file functionality - microphone only
+// Audio initialization is now handled by initMicrophone()
+
 function getAudioData(sphere) {
-    if (!analyser || (!audioContext && !usingMic)) return { 
+    if (!analyser) return { 
         average: 0, 
         frequencies: new Float32Array(), 
         peakDetected: false,
@@ -443,85 +303,7 @@ function getAudioData(sphere) {
 }
 
 
-function updateTimeline() {
-    if (audioElement && !audioElement.paused && audioElement.duration) {
-        const percent = (audioElement.currentTime / audioElement.duration) * 100;
-        timelineControl.value = percent;
-    }
-}
-
-function setupTimelineControl() {
-    audioElement.addEventListener('loadedmetadata', () => {
-        timelineControl.value = 0;
-        console.log('Song duration:', audioElement.duration);
-    });
-
-    audioElement.addEventListener('timeupdate', updateTimeline);
-
-    timelineControl.addEventListener('input', (e) => {
-        if (audioElement.duration) {
-            const time = (e.target.value / 100) * audioElement.duration;
-            audioElement.currentTime = time;
-        }
-    });
-}
-
-function togglePlay() {
-    if (usingMic) return; 
-
-    if (audioContext.state === 'suspended') {
-        audioContext.resume();
-    }
-    
-    if (!sourceNode && audioElement) {
-        try {
-            sourceNode = audioContext.createMediaElementSource(audioElement);
-            sourceNode.connect(analyser);
-            analyser.connect(audioContext.destination);
-        } catch (error) {
-            console.error("Audio connection failed:", error);
-            return;
-        }
-    }
-    
-    if (audioElement.paused) {
-        audioElement.play()
-            .then(() => playPause.textContent = 'Pause')
-            .catch(error => console.error("Playback failed:", error));
-    } else {
-        audioElement.pause();
-        playPause.textContent = 'Play';
-    }
-}
-
-function changeSong() {
-    if (audioContext.state === 'suspended') {
-        audioContext.resume();
-    }
-    
-    audioElement.src = songSelect.value;
-    audioElement.load();
-    
-    if (!sourceNode) {
-        try {
-            sourceNode = audioContext.createMediaElementSource(audioElement);
-            sourceNode.connect(analyser);
-            analyser.connect(audioContext.destination);
-        } catch (error) {
-            console.error("Audio connection failed:", error);
-            return;
-        }
-    }
-    
-    audioElement.play()
-        .then(() => {
-            playPause.textContent = 'Pause';
-            console.log("Playback started");
-        })
-        .catch(error => console.error("Playback failed:", error));
-
-    timelineControl.value = 0;
-}
+// Remove unused audio playback functions
 
 function generateNewNoiseScale(params, lastNoiseScale) {
     if (!params.dynamicNoiseScale) {
@@ -876,78 +658,13 @@ function updatePresetOptions() {
     });
 }
 
-// Main GUI panel
+// Main GUI panel - Simplified
 const mainGui = new dat.GUI();
 
-// FOG PARAMS
-const fogParams = {
-    enabled: true,
-    color: '#000000',
-    near: 2.7,
-    far: 3.7,
-};
-
-// After fog update
-function updateFog() {
-    if (!fogParams.enabled) {
-        scene.fog = null;
-    } else {
-        const color = new THREE.Color(fogParams.color);
-        scene.fog = new THREE.Fog(color, fogParams.near, fogParams.far);
-
-    }
-    renderer.render(scene, camera); // Překreslení scény
-}
-
-// Fog init
-if (fogParams.enabled) {
-    updateFog();
-}
-
-// Adding to main GUI
-mainGui.add(fogParams, 'enabled').name('Fog Enabled').onChange(updateFog);
-mainGui.addColor(fogParams, 'color').name('Fog Color').onChange(updateFog);
-mainGui.add(fogParams, 'near', 0.1, 5, 0.1).name('Fog Near').onChange(updateFog);
-mainGui.add(fogParams, 'far', 0.1, 5, 0.1).name('Fog Far').onChange(updateFog);
-
-// Main GUI particleCount
-mainGui.add({
-    globalParticleCount: 20000
-}, 'globalParticleCount', 1000, 100000).step(1000).onChange(value => {
-    spheres.forEach((sphere, index) => {
-        sphere.params.particleCount = value;
-        const {
-            newPositions,
-            newColors,
-            newVelocities,
-            newBasePositions,
-            newLifetimes,
-            newMaxLifetimes,
-            newBeatEffects
-        } = reinitializeParticlesForSphere(
-            sphere, sphere.params, sphere.geometry
-        );
-
-        sphere.positions = newPositions;
-        sphere.colors = newColors;
-        sphere.velocities = newVelocities;
-        sphere.basePositions = newBasePositions;
-        sphere.lifetimes = newLifetimes;
-        sphere.maxLifetimes = newMaxLifetimes;
-        sphere.beatEffects = newBeatEffects;
-
-        sphere.geometry.attributes.position.needsUpdate = true;
-        sphere.geometry.attributes.color.needsUpdate = true;
-
-        const sphereFolder = mainGui.__folders[`Sphere ${index + 1}`];
-        if (sphereFolder) {
-            const particleCountController = sphereFolder.__controllers.find(controller => controller.property === 'particleCount');
-            if (particleCountController) {
-                particleCountController.updateDisplay();
-            }
-        }
-    });
-});
+// Title in GUI
+const titleController = mainGui.add({ title: 'Audio Reactive Sphere' }, 'title').name('🎵 Controls');
+titleController.domElement.style.pointerEvents = 'none';
+titleController.domElement.style.opacity = '0.7';
 
 const spheres = [];
 
@@ -965,13 +682,16 @@ function createSphereVisualization(index) {
     const sphereParams = {
         enabled: index === 0,
         sphereRadius: 1.0,
+        particleCount: 20000,
+        particleSize: 0.003,
+        reactionStrength: 0.005,  // Simplified parameter for turbulence
+        color: '#66b3ff',  // Single color instead of gradient
+        // Hidden advanced parameters
         innerSphereRadius: 0.25,
         rotationSpeed: 0.001,
         rotationSpeedMin: 0,
         rotationSpeedMax: 0.065,
         rotationSmoothness: 0.3,
-        particleCount: 20000,
-        particleSize: 0.003,
         particleLifetime: 3.0,
         minFrequency: defaultFrequencies[index]?.minFrequency || 0,
         maxFrequency: defaultFrequencies[index]?.maxFrequency || 22050,
@@ -1077,13 +797,41 @@ function createSphereVisualization(index) {
         minTimeBetweenPeaks: 200
     };
 
-    // Colors update
-    updateColorsForSphere(sphereParams, sphereGeometry, sphereColors);
+    // Colors update - use single color
+    const updateSphereColor = () => {
+        const color = new THREE.Color(sphereParams.color);
+        for (let i = 0; i < sphereParams.particleCount; i++) {
+            sphereColors[i * 3] = color.r;
+            sphereColors[i * 3 + 1] = color.g;
+            sphereColors[i * 3 + 2] = color.b;
+        }
+        // Also update the hidden gradient colors
+        sphereParams.colorStart = sphereParams.color;
+        sphereParams.colorEnd = sphereParams.color;
+        sphereGeometry.attributes.color.needsUpdate = true;
+    };
+    updateSphereColor();
 
-    // GUI folder
+    // GUI folder - Simplified controls
     const sphereFolder = mainGui.addFolder('Sphere ' + (index + 1));
 
-    sphereFolder.add(sphere.params, 'particleCount', 1000, 100000).step(1000)
+    // Essential controls only
+    sphereFolder.add(sphere.params, 'enabled').name('Enable').onChange(value => {
+        sphere.particleSystem.visible = value;
+    });
+
+    sphereFolder.add(sphere.params, 'sphereRadius', 0.2, 2.0).step(0.1).name('Size')
+        .onChange(() => {
+            // Reinitialize particles when size changes significantly
+        });
+
+    sphereFolder.add(sphere.params, 'reactionStrength', 0, 0.02).step(0.001).name('Reaction Strength')
+        .onChange(value => {
+            // Update the actual turbulence strength
+            sphere.params.turbulenceStrength = value;
+        });
+
+    sphereFolder.add(sphere.params, 'particleCount', 5000, 50000).step(5000).name('Particle Count')
         .onChange(() => {
             const {
                 newPositions,
@@ -1109,145 +857,20 @@ function createSphereVisualization(index) {
             sphere.geometry.attributes.color.needsUpdate = true;
         });
     
-    sphereFolder.add(sphere.params, 'particleSize', 0.001, 0.01).step(0.001)
-        .onChange(value => {
-            sphere.material.size = value;
-        });
-
-    if (index === 0) { 
-    sphereFolder.add({ copyToOthers: () => {
-        for (let i = 1; i < spheres.length; i++) {
-            Object.assign(spheres[i].params, JSON.parse(JSON.stringify(sphere.params)));
-            
-            const {
-                newPositions,
-                newColors,
-                newVelocities,
-                newBasePositions,
-                newLifetimes,
-                newMaxLifetimes,
-                newBeatEffects
-            } = reinitializeParticlesForSphere(
-                spheres[i], spheres[i].params, spheres[i].geometry
-            );
-
-            spheres[i].positions = newPositions;
-            spheres[i].colors = newColors;
-            spheres[i].velocities = newVelocities;
-            spheres[i].basePositions = newBasePositions;
-            spheres[i].lifetimes = newLifetimes;
-            spheres[i].maxLifetimes = newMaxLifetimes;
-            spheres[i].beatEffects = newBeatEffects;
-
-            spheres[i].geometry.attributes.position.needsUpdate = true;
-            spheres[i].geometry.attributes.color.needsUpdate = true;
-
-
-            spheres[i].particleSystem.visible = spheres[i].params.enabled;
-
-            const targetFolder = mainGui.__folders[`Sphere ${i + 1}`];
-            if (targetFolder) {
-                targetFolder.__controllers.forEach(controller => controller.updateDisplay());
-            }
-        }
-        mainGui.updateDisplay();
-        console.log('Parameters copied from Sphere 1 to Spheres 2-5.');
-    }}, 'copyToOthers').name('Copy to Spheres 2-5');
-}
-    sphereFolder.add(sphere.params, 'particleLifetime', 1, 20).step(1);
-
-    sphereFolder.add(sphere.params, 'sphereRadius', 0.05, 3.0).step(0.05);
-    sphereFolder.add(sphere.params, 'innerSphereRadius', 0, 1).step(0.01)
+    sphereFolder.addColor(sphere.params, 'color').name('Color')
         .onChange(() => {
-            const {
-                newPositions,
-                newColors,
-                newVelocities,
-                newBasePositions,
-                newLifetimes,
-                newMaxLifetimes,
-                newBeatEffects
-            } = reinitializeParticlesForSphere(sphere, sphere.params, sphere.geometry);
-
-            sphere.positions = newPositions;
-            sphere.colors = newColors;
-            sphere.velocities = newVelocities;
-            sphere.basePositions = newBasePositions;
-            sphere.lifetimes = newLifetimes;
-            sphere.maxLifetimes = newMaxLifetimes;
-            sphere.beatEffects = newBeatEffects;
-            
-            sphere.geometry.attributes.position.needsUpdate = true;
+            const color = new THREE.Color(sphere.params.color);
+            for (let i = 0; i < sphere.params.particleCount; i++) {
+                sphere.colors[i * 3] = color.r;
+                sphere.colors[i * 3 + 1] = color.g;
+                sphere.colors[i * 3 + 2] = color.b;
+            }
+            sphere.params.colorStart = sphere.params.color;
+            sphere.params.colorEnd = sphere.params.color;
             sphere.geometry.attributes.color.needsUpdate = true;
         });
 
-    sphereFolder.add(sphere.params, 'rotationSpeedMin', 0, 0.02).step(0.001);
-    sphereFolder.add(sphere.params, 'rotationSpeedMax', 0, 0.1).step(0.001);
-    sphereFolder.add(sphere.params, 'rotationSmoothness', 0.01, 1).step(0.01);
-    sphereFolder.add(sphere.params, 'volumeChangeThreshold', 0.01, 0.2).step(0.01);
-    
-    sphereFolder.add(sphereParams, 'minFrequency', 0, 22050).step(1).name('Min Frequency (Hz)')
-        .onChange(value => sphereParams.minFrequency = value);
-    sphereFolder.add(sphereParams, 'maxFrequency', 0, 22050).step(1).name('Max Frequency (Hz)')
-        .onChange(value => sphereParams.maxFrequency = value);
-
-    // GUI defaults
-    const minFreqController = sphereFolder.__controllers.find(c => c.property === 'minFrequency');
-    const maxFreqController = sphereFolder.__controllers.find(c => c.property === 'maxFrequency');
-    if (minFreqController) minFreqController.setValue(sphereParams.minFrequency);
-    if (maxFreqController) maxFreqController.setValue(sphereParams.maxFrequency);
-
-    sphereFolder.add(sphere.params, 'noiseScale', 0.1, 10.0).step(0.1);
-    sphereFolder.add(sphere.params, 'minNoiseScale', 0.0, 10.0).step(0.1).name('Min NoiseScale')
-        .onChange(() => {
-            if (sphere.params.minNoiseScale > sphere.params.maxNoiseScale) {
-                sphere.params.minNoiseScale = sphere.params.maxNoiseScale;
-            }
-            updateNoiseStep(sphere.params);
-        });
-    sphereFolder.add(sphere.params, 'maxNoiseScale', 0.0, 10.0).step(0.1).name('Max NoiseScale')
-        .onChange(() => {
-            if (sphere.params.maxNoiseScale < sphere.params.minNoiseScale) {
-                sphere.params.maxNoiseScale = sphere.params.minNoiseScale;
-            }
-            updateNoiseStep(sphere.params);
-        });
-    sphereFolder.add(sphere.params, 'noiseStep', 0.1, 5.0).step(0.1).name('Noise Step')
-        .onChange(() => {
-            updateNoiseStep(sphere.params);
-        });
-    function updateNoiseStep(params) {
-        const range = params.maxNoiseScale - params.minNoiseScale;
-        if (params.noiseStep > range) {
-            params.noiseStep = range / 2;
-        }
-    }
-    sphereFolder.add(sphere.params, 'noiseSpeed', 0, 1.0).step(0.01);
-
-    sphereFolder.add(sphere.params, 'peakSensitivity', 1.01, 2).step(0.01);
-    sphereFolder.add(sphere.peakDetection, 'historyLength', 10, 1200).step(1).name('History Length');
-    sphereFolder.add(sphere.peakDetection, 'minTimeBetweenPeaks', 50, 5000).step(10).name('Min Time Between Peaks');
-
-    sphereFolder.add(sphere.params, 'turbulenceStrength', 0, 0.03).step(0.0001);
-    sphereFolder.addColor(sphere.params, 'colorStart')
-        .onChange(() => updateColorsForSphere(sphere.params, sphere.geometry, sphere.colors));
-    sphereFolder.addColor(sphere.params, 'colorEnd')
-        .onChange(() => updateColorsForSphere(sphere.params, sphere.geometry, sphere.colors));
-
-    sphereFolder.add(sphereParams, 'minFrequencyBeat', 0, 22050).step(1).name('Min Freq Beat (Hz)')
-        .onChange(value => sphereParams.minFrequencyBeat = value);
-    sphereFolder.add(sphereParams, 'maxFrequencyBeat', 0, 22050).step(1).name('Max Freq Beat (Hz)')
-        .onChange(value => sphereParams.maxFrequencyBeat = value);
-
-    sphereFolder.add(sphere.params, 'beatThreshold', 50, 255).step(1);
-    sphereFolder.add(sphere.params, 'beatStrength', 0, 0.05).step(0.001);
-    sphereFolder.add(sphere.params, 'gainMultiplier', 1.0, 3.0).step(0.1);
-    sphereFolder.add(sphere.params, 'dynamicNoiseScale');
-    sphereFolder.add(sphere.params, 'enabled').onChange(value => {
-        sphere.particleSystem.visible = value;
-    });
-
-    sphereFolder.close();
+    sphereFolder.open(); // Keep first sphere folder open
 
     return sphere;
 }
@@ -1481,7 +1104,6 @@ function animate(currentTime) {
     });
 
     renderer.render(scene, camera);
-    updateTimeline();
 }
 
 window.addEventListener('resize', () => {
@@ -1527,5 +1149,5 @@ document.querySelectorAll('.controls-container, .dg.main, #audioControls, #prese
 });
 
 console.log('Starting animation');
-initAudio();
+initMicrophone(); // Initialize microphone automatically
 animate(0);
