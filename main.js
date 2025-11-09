@@ -871,6 +871,9 @@ function createSphereVisualization(index) {
         });
 
     sphereFolder.open(); // Keep first sphere folder open
+    if (index !== 0) {
+        sphereFolder.close(); // Close other spheres
+    }
 
     return sphere;
 }
