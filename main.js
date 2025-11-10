@@ -483,51 +483,46 @@ if (!presetContainer) {
     document.body.appendChild(presetContainer);
 }
 
-// Save presets logic
+// Save presets logic - Single sphere
 saveButton.onclick = () => {
     const presetName = presetInput.value.trim();
     if (!presetName) return;
-    presets[presetName] = spheres.map(sphere => JSON.parse(JSON.stringify(sphere.params)));
+    // Save only the first sphere's parameters
+    presets[presetName] = JSON.parse(JSON.stringify(spheres[0].params));
     localStorage.setItem('presets', JSON.stringify(presets));
     updatePresetOptions();
 };
 
-// Reset logic
+// Reset logic - Single sphere
 resetButton.onclick = () => {
-    spheres.forEach((sphere, index) => {
-        const previousParticleCount = sphere.params.particleCount; // Uložíme původní počet částic
-        
-        Object.assign(sphere.params, defaultParams[index]);
-        sphere.particleSystem.visible = sphere.params.enabled;
+    const sphere = spheres[0];
+    const previousParticleCount = sphere.params.particleCount;
+    
+    Object.assign(sphere.params, defaultParams[0]);
+    sphere.particleSystem.visible = sphere.params.enabled;
 
-        if (sphere.params.particleCount !== previousParticleCount) {
-            const {
-                newPositions,
-                newColors,
-                newVelocities,
-                newBasePositions,
-                newLifetimes,
-                newMaxLifetimes,
-                newBeatEffects
-            } = reinitializeParticlesForSphere(sphere, sphere.params, sphere.geometry);
+    if (sphere.params.particleCount !== previousParticleCount) {
+        const {
+            newPositions,
+            newColors,
+            newVelocities,
+            newBasePositions,
+            newLifetimes,
+            newMaxLifetimes,
+            newBeatEffects
+        } = reinitializeParticlesForSphere(sphere, sphere.params, sphere.geometry);
 
-            sphere.positions = newPositions;
-            sphere.colors = newColors;
-            sphere.velocities = newVelocities;
-            sphere.basePositions = newBasePositions;
-            sphere.lifetimes = newLifetimes;
-            sphere.maxLifetimes = newMaxLifetimes;
-            sphere.beatEffects = newBeatEffects;
+        sphere.positions = newPositions;
+        sphere.colors = newColors;
+        sphere.velocities = newVelocities;
+        sphere.basePositions = newBasePositions;
+        sphere.lifetimes = newLifetimes;
+        sphere.maxLifetimes = newMaxLifetimes;
+        sphere.beatEffects = newBeatEffects;
 
-            sphere.geometry.attributes.position.needsUpdate = true;
-            sphere.geometry.attributes.color.needsUpdate = true;
-        }
-
-        const sphereFolder = mainGui.__folders[`Sphere ${index + 1}`];
-        if (sphereFolder) {
-            sphereFolder.__controllers.forEach(controller => controller.updateDisplay());
-        }
-    });
+        sphere.geometry.attributes.position.needsUpdate = true;
+        sphere.geometry.attributes.color.needsUpdate = true;
+    }
 
     console.log("Parameters reset to default values");
     mainGui.updateDisplay();
@@ -586,65 +581,65 @@ importButton.onclick = () => {
     fileInput.click();
 };
 
-// Upload presets logic
+// Upload presets logic - Single sphere
 presetSelect.onchange = () => {
     const presetName = presetSelect.value;
     if (!presetName) return;
     const preset = presets[presetName];
     if (!preset) return;
 
-    spheres.forEach((sphere, index) => {
-        const previousParticleCount = sphere.params.particleCount; // Původní počet částic
+    const sphere = spheres[0];
+    const previousParticleCount = sphere.params.particleCount;
 
-        Object.assign(sphere.params, preset[index]);
+    // Handle both old multi-sphere presets and new single-sphere presets
+    const presetData = Array.isArray(preset) ? preset[0] : preset;
+    Object.assign(sphere.params, presetData);
 
-        // Backward compatibility: if old preset doesn't have 'color', use colorStart
-        if (!('color' in sphere.params) && 'colorStart' in sphere.params) {
-            sphere.params.color = sphere.params.colorStart;
-        }
-        // Backward compatibility: if old preset doesn't have 'reactionStrength', use turbulenceStrength
-        if (!('reactionStrength' in sphere.params) && 'turbulenceStrength' in sphere.params) {
-            sphere.params.reactionStrength = sphere.params.turbulenceStrength;
-        }
+    // Backward compatibility: if old preset doesn't have 'color', use colorStart
+    if (!('color' in sphere.params) && 'colorStart' in sphere.params) {
+        sphere.params.color = sphere.params.colorStart;
+    }
+    // Backward compatibility: if old preset doesn't have 'reactionStrength', use turbulenceStrength
+    if (!('reactionStrength' in sphere.params) && 'turbulenceStrength' in sphere.params) {
+        sphere.params.reactionStrength = sphere.params.turbulenceStrength;
+    }
 
-        if (!('minFrequencyBeat' in sphere.params)) {
-            sphere.params.minFrequencyBeat = sphere.params.minFrequency;
-        }
-        if (!('maxFrequencyBeat' in sphere.params)) {
-            sphere.params.maxFrequencyBeat = sphere.params.maxFrequency;
-        }
+    if (!('minFrequencyBeat' in sphere.params)) {
+        sphere.params.minFrequencyBeat = sphere.params.minFrequency;
+    }
+    if (!('maxFrequencyBeat' in sphere.params)) {
+        sphere.params.maxFrequencyBeat = sphere.params.maxFrequency;
+    }
 
-        if (sphere.params.minNoiseScale >= sphere.params.maxNoiseScale) {
-            console.warn(`Preset fix: minNoiseScale (${sphere.params.minNoiseScale}) >= maxNoiseScale (${sphere.params.maxNoiseScale}).`);
-            sphere.params.maxNoiseScale = sphere.params.minNoiseScale + 0.1;
-        }
+    if (sphere.params.minNoiseScale >= sphere.params.maxNoiseScale) {
+        console.warn(`Preset fix: minNoiseScale (${sphere.params.minNoiseScale}) >= maxNoiseScale (${sphere.params.maxNoiseScale}).`);
+        sphere.params.maxNoiseScale = sphere.params.minNoiseScale + 0.1;
+    }
 
-        if (sphere.params.particleCount !== previousParticleCount) {
-            const {
-                newPositions,
-                newColors,
-                newVelocities,
-                newBasePositions,
-                newLifetimes,
-                newMaxLifetimes,
-                newBeatEffects
-            } = reinitializeParticlesForSphere(sphere, sphere.params, sphere.geometry);
+    if (sphere.params.particleCount !== previousParticleCount) {
+        const {
+            newPositions,
+            newColors,
+            newVelocities,
+            newBasePositions,
+            newLifetimes,
+            newMaxLifetimes,
+            newBeatEffects
+        } = reinitializeParticlesForSphere(sphere, sphere.params, sphere.geometry);
 
-            sphere.positions = newPositions;
-            sphere.colors = newColors;
-            sphere.velocities = newVelocities;
-            sphere.basePositions = newBasePositions;
-            sphere.lifetimes = newLifetimes;
-            sphere.maxLifetimes = newMaxLifetimes;
-            sphere.beatEffects = newBeatEffects;
+        sphere.positions = newPositions;
+        sphere.colors = newColors;
+        sphere.velocities = newVelocities;
+        sphere.basePositions = newBasePositions;
+        sphere.lifetimes = newLifetimes;
+        sphere.maxLifetimes = newMaxLifetimes;
+        sphere.beatEffects = newBeatEffects;
 
-            sphere.geometry.attributes.position.needsUpdate = true;
-            sphere.geometry.attributes.color.needsUpdate = true;
-        }
+        sphere.geometry.attributes.position.needsUpdate = true;
+        sphere.geometry.attributes.color.needsUpdate = true;
+    }
 
-        sphere.particleSystem.visible = sphere.params.enabled;
-    });
-
+    sphere.particleSystem.visible = sphere.params.enabled;
     mainGui.updateDisplay();
 };
 
@@ -667,7 +662,7 @@ function updatePresetOptions() {
     });
 }
 
-// Main GUI panel - Simplified
+// Main GUI panel - Simplified for single sphere
 const mainGui = new dat.GUI();
 
 // Title in GUI
@@ -679,22 +674,21 @@ const spheres = [];
 
 function createSphereVisualization(index) {
     
-    // Spheres default frequencies
+    // Only create first sphere
+    if (index !== 0) return null;
+    
+    // Single sphere default frequencies
     const defaultFrequencies = [
-        { minFrequency: 20, maxFrequency: 80 },  // Sub-bass
-        { minFrequency: 120, maxFrequency: 250 }, // Bass
-        { minFrequency: 250, maxFrequency: 800 }, // Mid
-        { minFrequency: 1000, maxFrequency: 4000 }, // High mid
-        { minFrequency: 5000, maxFrequency: 10000 } // High
+        { minFrequency: 20, maxFrequency: 22050 }  // Full spectrum
     ];
 
     const sphereParams = {
-        enabled: index === 0,
+        enabled: true,
         sphereRadius: 1.0,
         particleCount: 20000,
         particleSize: 0.003,
         reactionStrength: 0.005,  // Simplified parameter for turbulence
-        color: '#66b3ff',  // Single color instead of gradient
+        color: '#66b3ff',  // Single color
         // Hidden advanced parameters
         innerSphereRadius: 0.25,
         rotationSpeed: 0.001,
@@ -702,10 +696,10 @@ function createSphereVisualization(index) {
         rotationSpeedMax: 0.065,
         rotationSmoothness: 0.3,
         particleLifetime: 3.0,
-        minFrequency: defaultFrequencies[index]?.minFrequency || 0,
-        maxFrequency: defaultFrequencies[index]?.maxFrequency || 22050,
-        minFrequencyBeat: defaultFrequencies[index]?.minFrequency || 0,
-        maxFrequencyBeat: defaultFrequencies[index]?.maxFrequency || 22050,
+        minFrequency: defaultFrequencies[0].minFrequency,
+        maxFrequency: defaultFrequencies[0].maxFrequency,
+        minFrequencyBeat: defaultFrequencies[0].minFrequency,
+        maxFrequencyBeat: defaultFrequencies[0].maxFrequency,
         noiseScale: 4.0,
         dynamicNoiseScale: true,
         minNoiseScale: 0.5,       
@@ -821,26 +815,19 @@ function createSphereVisualization(index) {
     };
     updateSphereColor();
 
-    // GUI folder - Simplified controls
-    const sphereFolder = mainGui.addFolder('Sphere ' + (index + 1));
-
-    // Essential controls only
-    sphereFolder.add(sphere.params, 'enabled').name('Enable').onChange(value => {
-        sphere.particleSystem.visible = value;
-    });
-
-    sphereFolder.add(sphere.params, 'sphereRadius', 0.2, 2.0).step(0.1).name('Size')
+    // GUI - Essential controls only (no folder, just add to main GUI)
+    mainGui.add(sphere.params, 'sphereRadius', 0.2, 2.0).step(0.1).name('Sphere Size')
         .onChange(() => {
             // Reinitialize particles when size changes significantly
         });
 
-    sphereFolder.add(sphere.params, 'reactionStrength', 0, 0.02).step(0.001).name('Reaction Strength')
+    mainGui.add(sphere.params, 'reactionStrength', 0, 0.02).step(0.001).name('Reaction Strength')
         .onChange(value => {
             // Update the actual turbulence strength
             sphere.params.turbulenceStrength = value;
         });
 
-    sphereFolder.add(sphere.params, 'particleCount', 5000, 50000).step(5000).name('Particle Count')
+    mainGui.add(sphere.params, 'particleCount', 5000, 50000).step(5000).name('Particle Count')
         .onChange(() => {
             const {
                 newPositions,
@@ -866,7 +853,7 @@ function createSphereVisualization(index) {
             sphere.geometry.attributes.color.needsUpdate = true;
         });
     
-    sphereFolder.addColor(sphere.params, 'color').name('Color')
+    mainGui.addColor(sphere.params, 'color').name('Color')
         .onChange(() => {
             const color = new THREE.Color(sphere.params.color);
             for (let i = 0; i < sphere.params.particleCount; i++) {
@@ -879,16 +866,12 @@ function createSphereVisualization(index) {
             sphere.geometry.attributes.color.needsUpdate = true;
         });
 
-    sphereFolder.open(); // Keep first sphere folder open
-    if (index !== 0) {
-        sphereFolder.close(); // Close other spheres
-    }
-
     return sphere;
 }
 
-for (let i = 0; i < 5; i++) {
-    const sphereVis = createSphereVisualization(i);
+// Create only one sphere
+const sphereVis = createSphereVisualization(0);
+if (sphereVis) {
     spheres.push(sphereVis);
 }
 
@@ -899,14 +882,6 @@ spheres.forEach(sphere => {
 
 // Init presets
 updatePresetOptions();
-
-// Only sphere 1 allowed
-spheres.forEach((sphere, index) => {
-    if (index !== 0) {
-        sphere.params.enabled = false;
-        sphere.particleSystem.visible = false;
-    }
-});
 
 function getSmoothVolume(params, lastValidVolume, volumeChangeThreshold) {
     if (!analyser) return { volume: 0, shouldUpdate: false };

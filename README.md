@@ -1,30 +1,24 @@
 # Audio Reactive Sphere
 
-A real-time audio visualization that reacts to your microphone input. Watch as particles dance and respond to sound, frequency, and rhythm in 3D space.
-
-## 🎤 Live Demo
-
-Try it online: [Audio Reactive Sphere on GitHub Pages](https://siriusw823.github.io/Audio-Reactive-Sphere/)
+A real-time audio visualization that reacts to your microphone input. Watch as particles dance and respond to sound in 3D space.
 
 ## ✨ Features
 
 - **Microphone-based visualization** - Just allow microphone access and start making sound!
 - **Real-time particle reactions** - Watch thousands of particles respond instantly to audio
 - **Simple controls** - Easy-to-use interface with just the essentials:
-  - Enable/disable spheres
   - Adjust sphere size
-  - Control reaction strength
-  - Change colors with a single click
+  - Control reaction strength (vibration/movement intensity)
+  - Change color with a color picker
   - Adjust particle count for performance
-- **Multiple spheres** - Five independent particle spheres (only first enabled by default)
 - **Preset system** - Save, load, export, and import your favorite configurations
 
 ## 🚀 Quick Start
 
-1. Open the website (or run locally)
+1. Open `index.html` in your browser (or run locally with a server)
 2. Allow microphone access when prompted
 3. Start talking, singing, or playing music!
-4. Adjust the controls in the panel on the right
+4. Adjust the controls on the right
 
 That's it! No uploading files, no complicated setup.
 
@@ -46,17 +40,20 @@ Alternatively, use the provided `run.bat` file (Windows only).
 
 ## 🎨 Usage Tips
 
-- **Size**: Controls the radius of the sphere
-- **Reaction Strength**: How much the particles move in response to audio (higher = more movement)
-- **Particle Count**: More particles = more detail but lower performance
-- **Color**: Single color for all particles - experiment with different colors!
+- **Sphere Size**: Controls the radius of the sphere (0.2 to 2.0)
+- **Reaction Strength**: How much the particles move in response to audio (higher = more movement/vibration)
+- **Particle Count**: More particles = more detail but lower performance (5,000 to 50,000)
+- **Color**: Click to choose any color for your particles!
 
-## 🔧 Advanced Usage
+## 🔧 Presets
 
-Want more control? The advanced parameters are still there in the code, they're just hidden from the UI for simplicity. You can:
-- Save presets with custom configurations
-- Enable multiple spheres for different frequency ranges
-- Export and import presets to share with others
+Use the preset buttons at the top left to:
+- **Save**: Save your current settings with a custom name
+- **Reset**: Return to default settings
+- **Delete**: Remove a saved preset
+- **Export Presets**: Download all your presets as a JSON file
+- **Import Presets**: Load presets from a JSON file
+- **Select preset**: Choose from your saved presets
 
 ## 📝 Technical Details
 
@@ -65,16 +62,6 @@ Want more control? The advanced parameters are still there in the code, they're 
 - Particle system with noise-based turbulence
 - Beat detection with reactive wave effects
 - Runs entirely in the browser - no server needed!
-
-## 🌐 GitHub Pages Deployment
-
-This project automatically deploys to GitHub Pages when changes are pushed to the main branch.
-
-To deploy your fork:
-1. Go to your repository Settings
-2. Navigate to Pages
-3. Under "Build and deployment", select "GitHub Actions" as the source
-4. Push to the main branch and the site will deploy automatically
 
 ## 🤝 Collaboration
 
@@ -93,4 +80,4 @@ Original project: [Particula](https://github.com/Humprt/particula)
 Built by a human-AI duo: **Humprt (vibe-coder)** and **Caroline (ChatGPT 4o)**  
 Born from long nights, experimental tweaks, and love for sound and visual poetry.
 
-Simplified version with microphone-only input and easier controls.
+Simplified version with microphone-only input and streamlined controls for ease of use.
