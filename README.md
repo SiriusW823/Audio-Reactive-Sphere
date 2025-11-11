@@ -9,18 +9,21 @@ A real-time audio visualization that reacts to your microphone input. Watch as p
 - **Simple controls** - Easy-to-use interface with just the essentials:
   - Adjust sphere size
   - Control reaction strength (vibration/movement intensity)
-  - Change color with a color picker
-  - Adjust particle count for performance
+  - Adjust particle count and size for performance and aesthetics
+  - Choose outer and inner colors for gradient effects
 - **Preset system** - Save, load, export, and import your favorite configurations
 
 ## 🚀 Quick Start
 
 1. Open `index.html` in your browser (or run locally with a server)
-2. Allow microphone access when prompted
-3. Start talking, singing, or playing music!
-4. Adjust the controls on the right
+2. Click the **"🎤 Start Audio Visualization"** button to begin
+3. Allow microphone access when prompted
+4. Start talking, singing, or playing music!
+5. Adjust the controls on the right
 
 That's it! No uploading files, no complicated setup.
+
+> **Note**: The start button is required by Chrome's autoplay policy, which mandates user interaction before accessing audio devices.
 
 ## 💻 Running Locally
 
@@ -43,7 +46,9 @@ Alternatively, use the provided `run.bat` file (Windows only).
 - **Sphere Size**: Controls the radius of the sphere (0.2 to 2.0)
 - **Reaction Strength**: How much the particles move in response to audio (higher = more movement/vibration)
 - **Particle Count**: More particles = more detail but lower performance (5,000 to 50,000)
-- **Color**: Click to choose any color for your particles!
+- **Particle Size**: Adjust the size of individual particles for different visual effects (0.001 to 0.01)
+- **Outer Color**: The color at the edge of the sphere
+- **Inner Color**: The color at the center of the sphere (creates a gradient effect)
 
 ## 🔧 Presets
 
