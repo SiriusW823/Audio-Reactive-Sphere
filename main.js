@@ -430,9 +430,58 @@ function generateNewNoiseScale(params, lastNoiseScale) {
     return newValue;
 }
 
+// Particle position generators for different shapes
+function generateParticlePosition(shape, params) {
+    const radius = THREE.MathUtils.lerp(0, params.sphereRadius, params.innerSphereRadius);
+    let x, y, z;
+
+    switch(shape) {
+        case 'cube':
+            // Filled cube
+            x = (Math.random() - 0.5) * 2 * params.sphereRadius;
+            y = (Math.random() - 0.5) * 2 * params.sphereRadius;
+            z = (Math.random() - 0.5) * 2 * params.sphereRadius;
+            break;
+        
+        case 'torus':
+            // Torus (donut shape)
+            const torusAngle = Math.random() * Math.PI * 2;
+            const tubeAngle = Math.random() * Math.PI * 2;
+            const majorRadius = params.sphereRadius * 0.6;
+            const minorRadius = params.sphereRadius * 0.3;
+            const tubeR = Math.sqrt(Math.random()) * minorRadius;
+            x = (majorRadius + tubeR * Math.cos(tubeAngle)) * Math.cos(torusAngle);
+            y = (majorRadius + tubeR * Math.cos(tubeAngle)) * Math.sin(torusAngle);
+            z = tubeR * Math.sin(tubeAngle);
+            break;
+        
+        case 'ring':
+            // Ring/disc shape
+            const ringAngle = Math.random() * Math.PI * 2;
+            const ringR = Math.sqrt(Math.random()) * params.sphereRadius;
+            x = ringR * Math.cos(ringAngle);
+            y = ringR * Math.sin(ringAngle);
+            z = (Math.random() - 0.5) * params.sphereRadius * 0.1; // Thin disc
+            break;
+        
+        case 'sphere':
+        default:
+            // Filled sphere (original)
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const r = Math.cbrt(Math.random()) * radius;
+            x = r * Math.sin(phi) * Math.cos(theta);
+            y = r * Math.sin(phi) * Math.sin(theta);
+            z = r * Math.cos(phi);
+            break;
+    }
+
+    return { x, y, z };
+}
+
 // Reinit particles
 function reinitializeParticlesForSphere(sphere, sphereParams, sphereGeometry) {
-    console.log(`Reinitializing sphere ${sphere.index + 1} with ${sphereParams.particleCount} particles`);
+    console.log(`Reinitializing sphere ${sphere.index + 1} with ${sphereParams.particleCount} particles, shape: ${sphereParams.shape}`);
 
     const newPositions = new Float32Array(sphereParams.particleCount * 3);
     const newColors = new Float32Array(sphereParams.particleCount * 3);
@@ -444,22 +493,15 @@ function reinitializeParticlesForSphere(sphere, sphereParams, sphereGeometry) {
 
     for (let i = 0; i < sphereParams.particleCount; i++) {
         const i3 = i * 3;
-        const radius = THREE.MathUtils.lerp(0, sphereParams.sphereRadius, sphereParams.innerSphereRadius);
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-        const r = Math.cbrt(Math.random()) * radius;
+        const pos = generateParticlePosition(sphereParams.shape, sphereParams);
 
-        const x = r * Math.sin(phi) * Math.cos(theta);
-        const y = r * Math.sin(phi) * Math.sin(theta);
-        const z = r * Math.cos(phi);
+        newPositions[i3] = pos.x;
+        newPositions[i3 + 1] = pos.y;
+        newPositions[i3 + 2] = pos.z;
 
-        newPositions[i3] = x;
-        newPositions[i3 + 1] = y;
-        newPositions[i3 + 2] = z;
-
-        newBasePositions[i3] = x;
-        newBasePositions[i3 + 1] = y;
-        newBasePositions[i3 + 2] = z;
+        newBasePositions[i3] = pos.x;
+        newBasePositions[i3 + 1] = pos.y;
+        newBasePositions[i3 + 2] = pos.z;
 
         newVelocities[i3] = 0;
         newVelocities[i3 + 1] = 0;
@@ -512,7 +554,29 @@ function updateColorsForSphere(sphereParams, sphereGeometry, sphereColors) {
 }
 
 // Preset management
-const presets = JSON.parse(localStorage.getItem('presets')) || {}; // Uložené presety
+const defaultPresets = {
+    "Classic Sphere": {"shape":"sphere","sphereRadius":1.0,"particleCount":20000,"particleSize":0.003,"reactionStrength":0.005,"color":"#66b3ff","innerColor":"#3366ff"},
+    "Neon Cube": {"shape":"cube","sphereRadius":0.9,"particleCount":25000,"particleSize":0.003,"reactionStrength":0.008,"color":"#ff00ff","innerColor":"#ff0088"},
+    "Electric Torus": {"shape":"torus","sphereRadius":1.2,"particleCount":30000,"particleSize":0.002,"reactionStrength":0.006,"color":"#00ffff","innerColor":"#0088ff"},
+    "Cosmic Ring": {"shape":"ring","sphereRadius":1.3,"particleCount":18000,"particleSize":0.004,"reactionStrength":0.007,"color":"#ffaa00","innerColor":"#ff5500"},
+    "Crystal Sphere": {"shape":"sphere","sphereRadius":0.8,"particleCount":35000,"particleSize":0.002,"reactionStrength":0.004,"color":"#ffffff","innerColor":"#aaccff"},
+    "Fire Cube": {"shape":"cube","sphereRadius":1.1,"particleCount":22000,"particleSize":0.003,"reactionStrength":0.009,"color":"#ff4400","innerColor":"#ff0000"},
+    "Plasma Torus": {"shape":"torus","sphereRadius":1.0,"particleCount":28000,"particleSize":0.003,"reactionStrength":0.010,"color":"#ff00ff","innerColor":"#8800ff"},
+    "Galaxy Ring": {"shape":"ring","sphereRadius":1.4,"particleCount":20000,"particleSize":0.003,"reactionStrength":0.005,"color":"#8888ff","innerColor":"#4444ff"},
+    "Ocean Sphere": {"shape":"sphere","sphereRadius":1.2,"particleCount":24000,"particleSize":0.003,"reactionStrength":0.006,"color":"#00aaff","innerColor":"#0044aa"},
+    "Sunrise Ring": {"shape":"ring","sphereRadius":1.5,"particleCount":16000,"particleSize":0.004,"reactionStrength":0.008,"color":"#ffaa44","innerColor":"#ff6600"}
+};
+
+// Load presets from localStorage or use defaults
+let storedPresets = {};
+try {
+    storedPresets = JSON.parse(localStorage.getItem('presets')) || {};
+} catch (e) {
+    console.warn('Failed to load presets from localStorage:', e);
+}
+
+// Merge default presets with stored presets (stored presets take precedence)
+const presets = { ...defaultPresets, ...storedPresets };
 const defaultParams = []; // Pro ukládání výchozích hodnot každé sféry
 
 // HTML elements presets
@@ -695,6 +759,10 @@ presetSelect.onchange = () => {
     if (!('reactionStrength' in sphere.params) && 'turbulenceStrength' in sphere.params) {
         sphere.params.reactionStrength = sphere.params.turbulenceStrength;
     }
+    // Backward compatibility: if old preset doesn't have 'shape', default to sphere
+    if (!('shape' in sphere.params)) {
+        sphere.params.shape = 'sphere';
+    }
 
     if (!('minFrequencyBeat' in sphere.params)) {
         sphere.params.minFrequencyBeat = sphere.params.minFrequency;
@@ -780,6 +848,7 @@ function createSphereVisualization(index) {
 
     const sphereParams = {
         enabled: true,
+        shape: 'sphere',  // Options: 'sphere', 'cube', 'torus', 'ring'
         sphereRadius: 1.0,
         particleCount: 20000,
         particleSize: 0.003,
@@ -826,22 +895,15 @@ function createSphereVisualization(index) {
     // Init particles
     for (let i = 0; i < sphereParams.particleCount; i++) {
         const i3 = i * 3;
-        const radius = THREE.MathUtils.lerp(0, sphereParams.sphereRadius, sphereParams.innerSphereRadius);
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-        const r = Math.cbrt(Math.random()) * radius;
+        const pos = generateParticlePosition(sphereParams.shape, sphereParams);
 
-        const x = r * Math.sin(phi) * Math.cos(theta);
-        const y = r * Math.sin(phi) * Math.sin(theta);
-        const z = r * Math.cos(phi);
+        spherePositions[i3] = pos.x;
+        spherePositions[i3 + 1] = pos.y;
+        spherePositions[i3 + 2] = pos.z;
 
-        spherePositions[i3] = x;
-        spherePositions[i3 + 1] = y;
-        spherePositions[i3 + 2] = z;
-
-        basePositions[i3] = x;
-        basePositions[i3 + 1] = y;
-        basePositions[i3 + 2] = z;
+        basePositions[i3] = pos.x;
+        basePositions[i3 + 1] = pos.y;
+        basePositions[i3 + 2] = pos.z;
 
         velocities[i3] = 0;
         velocities[i3 + 1] = 0;
@@ -924,6 +986,33 @@ function createSphereVisualization(index) {
     updateSphereColor();
 
     // GUI - Essential controls only (no folder, just add to main GUI)
+    mainGui.add(sphere.params, 'shape', ['sphere', 'cube', 'torus', 'ring']).name('Shape')
+        .onChange(() => {
+            // Reinitialize particles when shape changes
+            const {
+                newPositions,
+                newColors,
+                newVelocities,
+                newBasePositions,
+                newLifetimes,
+                newMaxLifetimes,
+                newBeatEffects
+            } = reinitializeParticlesForSphere(
+                sphere, sphere.params, sphere.geometry
+            );
+
+            sphere.positions = newPositions;
+            sphere.colors = newColors;
+            sphere.velocities = newVelocities;
+            sphere.basePositions = newBasePositions;
+            sphere.lifetimes = newLifetimes;
+            sphere.maxLifetimes = newMaxLifetimes;
+            sphere.beatEffects = newBeatEffects;
+
+            sphere.geometry.attributes.position.needsUpdate = true;
+            sphere.geometry.attributes.color.needsUpdate = true;
+        });
+
     mainGui.add(sphere.params, 'sphereRadius', 0.2, 2.0).step(0.1).name('Sphere Size')
         .onChange(() => {
             // Reinitialize particles when size changes significantly
@@ -1139,14 +1228,10 @@ function animate(currentTime) {
 
             // Reset of dead particles
             if (lt <= 0) {
-                const radius = THREE.MathUtils.lerp(0, params.sphereRadius, params.innerSphereRadius);
-                const theta = Math.random() * Math.PI * 2;
-                const phi = Math.acos(2 * Math.random() - 1);
-                const rr = Math.cbrt(Math.random()) * radius;
-
-                x = rr * Math.sin(phi) * Math.cos(theta);
-                y = rr * Math.sin(phi) * Math.sin(theta);
-                z = rr * Math.cos(phi);
+                const pos = generateParticlePosition(params.shape, params);
+                x = pos.x;
+                y = pos.y;
+                z = pos.z;
 
                 vx = 0;
                 vy = 0;
