@@ -93,10 +93,62 @@ let micSource = null;
 // Microphone status indicator
 const micStatus = document.createElement('div');
 micStatus.style.cssText = 'position: fixed; top: 10px; right: 310px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 5px; color: white; font-size: 14px;';
-micStatus.innerHTML = '🎤 Microphone: <span id="mic-status-text">Initializing...</span>';
+micStatus.innerHTML = '🎤 Microphone: <span id="mic-status-text">Not started</span>';
 document.body.appendChild(micStatus);
 
 let usingMic = true; // Always use microphone
+
+// Start button overlay for user interaction requirement
+const startOverlay = document.createElement('div');
+startOverlay.id = 'start-overlay';
+startOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    font-family: Arial, sans-serif;
+`;
+
+const startButton = document.createElement('button');
+startButton.textContent = '🎤 Start Audio Visualization';
+startButton.style.cssText = `
+    padding: 20px 40px;
+    font-size: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+`;
+startButton.onmouseover = () => {
+    startButton.style.transform = 'scale(1.05)';
+    startButton.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+};
+startButton.onmouseout = () => {
+    startButton.style.transform = 'scale(1)';
+    startButton.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+};
+
+const startInfo = document.createElement('p');
+startInfo.textContent = 'Click to allow microphone access and start visualization';
+startInfo.style.cssText = `
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 20px;
+    font-size: 16px;
+`;
+
+startOverlay.appendChild(startButton);
+startOverlay.appendChild(startInfo);
+document.body.appendChild(startOverlay);
 
 console.log('Controls created');
 
@@ -194,7 +246,7 @@ const beatManager = {
     }
 };
 
-// Initialize microphone automatically
+// Initialize microphone with user interaction
 async function initMicrophone() {
     const statusText = document.getElementById('mic-status-text');
     
@@ -204,7 +256,11 @@ async function initMicrophone() {
             analyser = audioContext.createAnalyser();
             analyser.fftSize = 2048;
         }
-        await audioContext.resume();
+        
+        // Resume AudioContext (requires user gesture in Chrome)
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
 
         statusText.textContent = 'Requesting access...';
         
@@ -225,13 +281,35 @@ async function initMicrophone() {
         statusText.style.color = '#4ade80';
         console.log('Microphone is active');
         
+        // Remove the start overlay after successful initialization
+        const overlay = document.getElementById('start-overlay');
+        if (overlay) {
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 0.5s';
+            setTimeout(() => overlay.remove(), 500);
+        }
+        
     } catch (error) {
         console.error("Microphone access failed:", error.name, error.message);
         statusText.textContent = 'Access Denied ✗';
         statusText.style.color = '#ef4444';
-        alert('Microphone access is required for this application. Please allow microphone access and refresh the page.');
+        
+        // Show error on overlay
+        const overlay = document.getElementById('start-overlay');
+        if (overlay) {
+            const errorMsg = document.createElement('p');
+            errorMsg.textContent = 'Microphone access denied. Please allow access and try again.';
+            errorMsg.style.cssText = 'color: #ef4444; margin-top: 20px; font-size: 16px;';
+            overlay.appendChild(errorMsg);
+            
+            // Allow retry
+            startButton.textContent = '🔄 Retry';
+        }
     }
 }
+
+// Add click event to start button
+startButton.addEventListener('click', initMicrophone);
 
 // Remove audio file functionality - microphone only
 // Audio initialization is now handled by initMicrophone()
@@ -411,14 +489,24 @@ function reinitializeParticlesForSphere(sphere, sphereParams, sphereGeometry) {
 }
 
 function updateColorsForSphere(sphereParams, sphereGeometry, sphereColors) {
-    // Use single color if available, otherwise use colorStart
-    const colorToUse = sphereParams.color || sphereParams.colorStart;
-    const color = new THREE.Color(colorToUse);
+    // Use gradient from innerColor to color (outer)
+    const outerColor = new THREE.Color(sphereParams.color || sphereParams.colorStart);
+    const innerColor = new THREE.Color(sphereParams.innerColor || sphereParams.colorEnd || sphereParams.colorStart);
 
+    const positions = sphereGeometry.attributes.position.array;
+    
     for (let i = 0; i < sphereParams.particleCount; i++) {
-        sphereColors[i * 3] = color.r;
-        sphereColors[i * 3 + 1] = color.g;
-        sphereColors[i * 3 + 2] = color.b;
+        const i3 = i * 3;
+        const x = positions[i3];
+        const y = positions[i3 + 1];
+        const z = positions[i3 + 2];
+        const dist = Math.sqrt(x*x + y*y + z*z);
+        const normalizedDist = Math.min(dist / sphereParams.sphereRadius, 1.0);
+        
+        // Interpolate between inner and outer color based on distance
+        sphereColors[i3] = THREE.MathUtils.lerp(innerColor.r, outerColor.r, normalizedDist);
+        sphereColors[i3 + 1] = THREE.MathUtils.lerp(innerColor.g, outerColor.g, normalizedDist);
+        sphereColors[i3 + 2] = THREE.MathUtils.lerp(innerColor.b, outerColor.b, normalizedDist);
     }
     sphereGeometry.attributes.color.needsUpdate = true;
 }
@@ -599,6 +687,10 @@ presetSelect.onchange = () => {
     if (!('color' in sphere.params) && 'colorStart' in sphere.params) {
         sphere.params.color = sphere.params.colorStart;
     }
+    // Backward compatibility: if old preset doesn't have 'innerColor', use colorEnd or color
+    if (!('innerColor' in sphere.params)) {
+        sphere.params.innerColor = sphere.params.colorEnd || sphere.params.color;
+    }
     // Backward compatibility: if old preset doesn't have 'reactionStrength', use turbulenceStrength
     if (!('reactionStrength' in sphere.params) && 'turbulenceStrength' in sphere.params) {
         sphere.params.reactionStrength = sphere.params.turbulenceStrength;
@@ -640,6 +732,10 @@ presetSelect.onchange = () => {
     }
 
     sphere.particleSystem.visible = sphere.params.enabled;
+    
+    // Update material size
+    sphere.material.size = sphere.params.particleSize;
+    
     mainGui.updateDisplay();
 };
 
@@ -688,7 +784,8 @@ function createSphereVisualization(index) {
         particleCount: 20000,
         particleSize: 0.003,
         reactionStrength: 0.005,  // Simplified parameter for turbulence
-        color: '#66b3ff',  // Single color
+        color: '#66b3ff',  // Outer color
+        innerColor: '#3366ff',  // Inner color (new)
         // Hidden advanced parameters
         innerSphereRadius: 0.25,
         rotationSpeed: 0.001,
@@ -800,17 +897,28 @@ function createSphereVisualization(index) {
         minTimeBetweenPeaks: 200
     };
 
-    // Colors update - use single color
+    // Colors update - use gradient from innerColor to color (outer)
     const updateSphereColor = () => {
-        const color = new THREE.Color(sphereParams.color);
+        const outerColor = new THREE.Color(sphereParams.color);
+        const innerColor = new THREE.Color(sphereParams.innerColor);
+        
         for (let i = 0; i < sphereParams.particleCount; i++) {
-            sphereColors[i * 3] = color.r;
-            sphereColors[i * 3 + 1] = color.g;
-            sphereColors[i * 3 + 2] = color.b;
+            const i3 = i * 3;
+            // Calculate distance from center to determine color
+            const x = spherePositions[i3];
+            const y = spherePositions[i3 + 1];
+            const z = spherePositions[i3 + 2];
+            const dist = Math.sqrt(x*x + y*y + z*z);
+            const normalizedDist = Math.min(dist / sphereParams.sphereRadius, 1.0);
+            
+            // Interpolate between inner and outer color based on distance
+            sphereColors[i3] = THREE.MathUtils.lerp(innerColor.r, outerColor.r, normalizedDist);
+            sphereColors[i3 + 1] = THREE.MathUtils.lerp(innerColor.g, outerColor.g, normalizedDist);
+            sphereColors[i3 + 2] = THREE.MathUtils.lerp(innerColor.b, outerColor.b, normalizedDist);
         }
-        // Also update the hidden gradient colors
+        // Also update the hidden gradient colors for backward compatibility
         sphereParams.colorStart = sphereParams.color;
-        sphereParams.colorEnd = sphereParams.color;
+        sphereParams.colorEnd = sphereParams.innerColor;
         sphereGeometry.attributes.color.needsUpdate = true;
     };
     updateSphereColor();
@@ -853,17 +961,19 @@ function createSphereVisualization(index) {
             sphere.geometry.attributes.color.needsUpdate = true;
         });
     
-    mainGui.addColor(sphere.params, 'color').name('Color')
+    mainGui.add(sphere.params, 'particleSize', 0.001, 0.01).step(0.001).name('Particle Size')
+        .onChange(value => {
+            sphere.material.size = value;
+        });
+    
+    mainGui.addColor(sphere.params, 'color').name('Outer Color')
         .onChange(() => {
-            const color = new THREE.Color(sphere.params.color);
-            for (let i = 0; i < sphere.params.particleCount; i++) {
-                sphere.colors[i * 3] = color.r;
-                sphere.colors[i * 3 + 1] = color.g;
-                sphere.colors[i * 3 + 2] = color.b;
-            }
-            sphere.params.colorStart = sphere.params.color;
-            sphere.params.colorEnd = sphere.params.color;
-            sphere.geometry.attributes.color.needsUpdate = true;
+            updateSphereColor();
+        });
+    
+    mainGui.addColor(sphere.params, 'innerColor').name('Inner Color')
+        .onChange(() => {
+            updateSphereColor();
         });
 
     return sphere;
@@ -1136,5 +1246,5 @@ document.querySelectorAll('.controls-container, .dg.main, #audioControls, #prese
 });
 
 console.log('Starting animation');
-initMicrophone(); // Initialize microphone automatically
+// Don't initialize microphone automatically - wait for user interaction
 animate(0);
